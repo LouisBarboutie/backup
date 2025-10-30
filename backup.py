@@ -5,6 +5,13 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Iterator, Tuple
 
+
+class TargetNotFoundError(Exception):
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
+
 SRC_PATHS = [
     Path("C:/Users/louis/Documents/"),
     Path("C:/Users/louis/Pictures/"),
@@ -13,7 +20,6 @@ SRC_PATHS = [
 ]
 DST_PATH = Path("D:/backup/").expanduser().resolve()
 INTERVAL = timedelta(hours=6)
-
 
 logging.basicConfig(
     format="[{asctime}] {levelname:<8} - {message}",
@@ -43,6 +49,26 @@ def files_to_backup_from(src_root: Path, dst_root: Path) -> Iterator[Tuple[Path,
 
         yield src_path, dst_path
 
+
+logging.info("Validating inputs...")
+
+# remove duplicates
+SRC_PATHS = list(set(SRC_PATHS))
+SRC_PATHS.sort()
+
+faulty_paths = []
+for path in SRC_PATHS:
+    if not path.exists():
+        logging.warning(f"Source path {path} wasn't found, skipping")
+        faulty_paths.append(path)
+
+for path in faulty_paths:
+    SRC_PATHS.remove(path)
+
+if not DST_PATH.exists():
+    message = f"Destination path {DST_PATH} not found, aborting"
+    logging.critical(message)
+    raise TargetNotFoundError(message)
 
 logging.info("Checking available space and backup size...")
 
