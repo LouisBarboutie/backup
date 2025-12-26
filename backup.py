@@ -33,6 +33,17 @@ logging.basicConfig(
 )
 
 
+def strfbytes(byte_count: int, fmt: str = ".1f") -> str:
+    units = ["Bytes", "KB", "MB", "GB"]
+    magnitude = 0
+    value = byte_count
+    while value >= 1024 and magnitude < len(units) - 1:
+        value /= 1024
+        magnitude += 1
+
+    return f"{value:{fmt}} {units[magnitude]}"
+
+
 def files_to_backup_from(src_root: Path, dst_root: Path) -> Iterator[Tuple[Path, Path]]:
     for src_path in src_root.rglob("*"):
         if not src_path.is_file():
@@ -70,8 +81,17 @@ if not DST_PATH.exists():
     logging.critical(message)
     raise TargetNotFoundError(message)
 
-logging.info("Checking available space and backup size...")
+logging.info("Checking available space...")
 
+available_space = shutil.disk_usage(DST_PATH).free
+logging.info(f"Available size: {strfbytes(available_space)}")
+
+current_backup_size = 0
+for path in DST_PATH.rglob("*"):
+    current_backup_size += path.stat().st_size
+logging.info(f"Current backup size: {strfbytes(current_backup_size)}")
+
+logging.info("Checking required space for backup...")
 backup_size = 0
 file_count = 0
 for root in SRC_PATHS:
@@ -81,15 +101,12 @@ for root in SRC_PATHS:
         file_count += 1
     backup_size += size
 
-available_space = shutil.disk_usage(DST_PATH).free
-
 if file_count == 0:
     logging.info("No files found to backup, exiting...")
     sys.exit()
 
 logging.info(f"Found {file_count} file(s) to back up")
-logging.info(f"Size of back up: {backup_size} Bytes")
-logging.info(f"Available size: {available_space} Bytes")
+logging.info(f"Size of back up: {strfbytes(backup_size)} ")
 
 if backup_size >= available_space:
     message = f"Not enough disk space available for the backup. Required {backup_size}, available {available_space}"
